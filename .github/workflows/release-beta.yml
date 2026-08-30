@@ -61,6 +61,7 @@ jobs:
         run: dotnet build "${{ steps.detect.outputs.project }}" -c "${{ github.event.inputs.configuration }}" --no-restore
 
       - name: Publish win-x64
+        id: pack
         shell: pwsh
         run: |
           $outDir = Join-Path $env:RUNNER_TEMP "publish-win-x64"
@@ -75,37 +76,6 @@ jobs:
           $zipPath = Join-Path $env:RUNNER_TEMP $zipName
           Compress-Archive -Path (Join-Path $outDir "*") -DestinationPath $zipPath -Force
           "zip_path=$zipPath" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
-        id: pack
-
-      - name: Generate release notes
-        id: notes
-        shell: pwsh
-        run: |
-          $notes = @"
-## v2.0.8-beta.1 (Pre-release)
-
-这是 v2.0.8 的测试版本，用于功能验证与问题收集，请勿用于生产环境。
-
-### ✨ 主要变化
-- 新增：自定义 Steam 账号登录（单账号）
-- 支持：用户名 + 密码登录流程
-- 支持：Steam App 令牌（Steam Guard 2FA）验证流程
-- 优化：登录状态提示与错误提示（密码错误/令牌过期/网络异常等）
-- 集成：登录后可继续创意工坊下载流程
-
-### 🧪 测试建议
-1. 输入账号密码并登录
-2. 按提示输入 Steam App 动态令牌
-3. 登录成功后执行创意工坊下载
-4. 验证异常场景提示（错误密码、错误令牌、网络中断）
-
-### ⚠️ 已知说明
-- 该版本为 Beta 测试版，功能与交互仍可能调整
-- 如遇问题，请附带日志与复现步骤反馈
-"@
-          $file = Join-Path $env:RUNNER_TEMP "release-notes.md"
-          $notes | Out-File -FilePath $file -Encoding utf8
-          "file=$file" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
 
       - name: Create/Update pre-release
         uses: softprops/action-gh-release@v2
@@ -113,8 +83,8 @@ jobs:
           tag_name: ${{ github.event.inputs.tag }}
           target_commitish: master
           name: ${{ github.event.inputs.tag }}
-          body_path: ${{ steps.notes.outputs.file }}
           prerelease: true
+          generate_release_notes: true
           files: ${{ steps.pack.outputs.zip_path }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
