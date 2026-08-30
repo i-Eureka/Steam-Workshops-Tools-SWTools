@@ -19,6 +19,11 @@ namespace SWTools.Core {
         public bool IgnoreMissingFiles { get; set; } = false;   // 忽略丢失的文件
         public bool NoAutoFetch { get; set; } = false;          // 禁用自动更新
 
+        // [Steam 账号]
+        public string CustomUsername { get; set; } = "";        // 自定义账号用户名
+        public string CustomPassword { get; set; } = "";        // 自定义账号密码（明文存储，后续可接入 DPAPI 加密）
+        public bool CustomRememberPassword { get; set; } = false; // 是否记住密码
+
         // [调试选项]
 #if DEBUG
         public bool LogDebug { get; set; } = true;      // 输出调试日志

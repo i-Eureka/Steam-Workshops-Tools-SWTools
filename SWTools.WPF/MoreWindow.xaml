@@ -130,6 +130,65 @@
                 <TextBox Margin="20 10 20 20" IsReadOnly="True" x:Name="LicenseText" Padding="40 10 40 10"
                          FontFamily="Consolas" FontSize="13" VerticalScrollBarVisibility="Visible"/>
             </TabItem>
+            <!--Steam 账号-->
+            <TabItem Background="{StaticResource BhLight}">
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal" Margin="5 0 5 0" MinWidth="80">
+                        <TextBlock FontFamily="{StaticResource SymbolThemeFontFamily}" Text="&#xE77B;" VerticalAlignment="Center" Margin="0 0 10 0"/>
+                        <TextBlock Text="Steam 账号" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </TabItem.Header>
+                <DockPanel Margin="20 15 20 10">
+                    <!--登录状态栏-->
+                    <DockPanel DockPanel.Dock="Top" Margin="0 0 0 10" LastChildFill="False">
+                        <TextBlock VerticalAlignment="Center" Margin="0 0 8 0"
+                                   Text="登录状态："/>
+                        <TextBlock x:Name="TxtLoginState" VerticalAlignment="Center"
+                                   Text="{Binding LoginStateText}" FontWeight="SemiBold"/>
+                    </DockPanel>
+                    <!--账号输入区-->
+                    <Grid DockPanel.Dock="Top">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="8"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="8"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="12"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="80"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <!--用户名-->
+                        <TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Text="用户名"/>
+                        <TextBox Grid.Row="0" Grid.Column="1" x:Name="TxtUsername"
+                                 Text="{Binding Config.CustomUsername, UpdateSourceTrigger=PropertyChanged}"/>
+                        <!--密码-->
+                        <TextBlock Grid.Row="2" Grid.Column="0" VerticalAlignment="Center" Text="密码"/>
+                        <PasswordBox Grid.Row="2" Grid.Column="1" x:Name="PbPassword"
+                                     PasswordChanged="PbPassword_PasswordChanged"/>
+                        <!--记住密码-->
+                        <CheckBox Grid.Row="4" Grid.Column="1"
+                                  Content="记住密码（明文保存到本地配置）"
+                                  IsChecked="{Binding Config.CustomRememberPassword}"
+                                  Unchecked="ChkRememberPassword_Unchecked"/>
+                        <!--按钮区-->
+                        <StackPanel Grid.Row="6" Grid.Column="1" Orientation="Horizontal">
+                            <Button x:Name="BtnLogin" Content="登录 / 重新登录"
+                                    IsEnabled="{Binding IsLoginBtnEnabled}"
+                                    Click="BtnLogin_Click" Margin="0 0 10 0"/>
+                            <Button x:Name="BtnResetLoginState" Content="重置登录状态"
+                                    Click="BtnResetLoginState_Click"/>
+                        </StackPanel>
+                    </Grid>
+                    <!--说明文字-->
+                    <TextBlock DockPanel.Dock="Bottom" Margin="0 12 0 0" Foreground="Gray"
+                               TextWrapping="Wrap"
+                               Text="说明：登录成功后，Steamcmd 会在本地缓存会话，后续下载将优先使用此账号。密码仅在&quot;记住密码&quot;开启时才会持久化存储。"/>
+                </DockPanel>
+            </TabItem>
             <TabItem Background="{StaticResource BhLight}">
                 <TabItem.Header>
                     <StackPanel Orientation="Horizontal" Margin="5 0 5 0" MinWidth="80">

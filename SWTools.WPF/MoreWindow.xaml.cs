@@ -61,6 +61,15 @@ namespace SWTools.WPF {
         }
 
         private void Window_Loaded(object sender, RoutedEventArgs e) {
+            // 同步登录状态
+            ViewModel.SyncLoginState();
+
+            // 若记住密码，则预填 PasswordBox（PasswordBox 不支持双向绑定）
+            if (Core.ConfigManager.Config.CustomRememberPassword &&
+                !string.IsNullOrEmpty(Core.ConfigManager.Config.CustomPassword)) {
+                PbPassword.Password = Core.ConfigManager.Config.CustomPassword;
+            }
+
             // 提示新版本
             if (!SWTools.ViewModel.MoreWindow.HasHintedLatestVersion) {
                 SWTools.ViewModel.MoreWindow.HasHintedLatestVersion = true;
@@ -100,6 +109,90 @@ namespace SWTools.WPF {
                     msgBox.ShowDialog();
                 }
             }
+        }
+
+        // PasswordBox 内容变更时同步（PasswordBox 安全性不支持绑定）
+        private void PbPassword_PasswordChanged(object sender, RoutedEventArgs e) {
+            if (Core.ConfigManager.Config.CustomRememberPassword) {
+                Core.ConfigManager.Config.CustomPassword = PbPassword.Password;
+            }
+        }
+
+        // 取消"记住密码"时，立即清除持久化的密码
+        private void ChkRememberPassword_Unchecked(object sender, RoutedEventArgs e) {
+            Core.ConfigManager.Config.CustomPassword = string.Empty;
+            Core.ConfigManager.Save("ClearPassword");
+        }
+
+        // 登录 / 重新登录
+        private async void BtnLogin_Click(object sender, RoutedEventArgs e) {
+            var username = TxtUsername.Text.Trim();
+            var password = PbPassword.Password;
+
+            if (string.IsNullOrWhiteSpace(username)) {
+                MsgBox msg = new("输入错误", "请填写用户名。", false) { Owner = this };
+                msg.ShowDialog();
+                return;
+            }
+            if (string.IsNullOrEmpty(password)) {
+                MsgBox msg = new("输入错误", "请填写密码。", false) { Owner = this };
+                msg.ShowDialog();
+                return;
+            }
+
+            // 保存用户名；密码仅在"记住密码"开启时保存
+            Core.ConfigManager.Config.CustomUsername = username;
+            if (Core.ConfigManager.Config.CustomRememberPassword) {
+                Core.ConfigManager.Config.CustomPassword = password;
+            } else {
+                Core.ConfigManager.Config.CustomPassword = string.Empty;
+            }
+            Core.ConfigManager.Save("Login");
+
+            // 更新 UI 状态
+            ViewModel.SyncLoginState();  // 先同步为 LoggingIn
+
+            // 启动登录（异步）
+            var result = await Core.SteamLoginService.LoginAsync(
+                username,
+                password,
+                getGuardCode: async () => {
+                    // 需要在 UI 线程弹出对话框
+                    string? code = null;
+                    await Dispatcher.InvokeAsync(() => {
+                        var dlg = new SteamGuardDialog { Owner = this };
+                        if (dlg.ShowDialog() == true) {
+                            code = dlg.GuardCode;
+                        }
+                    });
+                    return code;
+                });
+
+            // 同步最终状态
+            ViewModel.SyncLoginState();
+
+            // 提示结果
+            string resultMsg = result switch {
+                Core.ELoginResult.Success        => "登录成功！后续下载将优先使用此账号。",
+                Core.ELoginResult.InvalidPassword => "账号或密码错误，请检查后重试。",
+                Core.ELoginResult.GuardCodeFailed => "Steam Guard 令牌错误或已过期，请重新登录并输入最新令牌。",
+                Core.ELoginResult.NetworkError    => "网络连接失败，请检查网络后重试。",
+                Core.ELoginResult.Cancelled       => "已取消登录（未输入令牌）。",
+                _                                 => "登录失败（未知原因），请查看日志获取详情。"
+            };
+            MsgBox resultBox = new(
+                result == Core.ELoginResult.Success ? "登录成功" : "登录失败",
+                resultMsg,
+                false) { Owner = this };
+            resultBox.ShowDialog();
+        }
+
+        // 重置登录状态（不清除 Steamcmd 缓存）
+        private void BtnResetLoginState_Click(object sender, RoutedEventArgs e) {
+            Core.SteamLoginService.ResetState();
+            ViewModel.SyncLoginState();
+            MsgBox msg = new("已重置", "登录状态已重置为“未登录”。\n（Steamcmd 本地会话缓存未被清除）", false) { Owner = this };
+            msg.ShowDialog();
         }
     }
 }
