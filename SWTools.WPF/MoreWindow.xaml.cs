@@ -157,10 +157,10 @@ namespace SWTools.WPF {
                 username,
                 password,
                 getGuardCode: async () => {
-                    // 需要在 UI 线程弹出对话框
+                    // 需要在 UI 线程弹出对话框（TOTP / 邮箱验证码）
                     string? code = null;
                     await Dispatcher.InvokeAsync(() => {
-                        var dlg = new SteamGuardDialog();
+                        var dlg = new SteamGuardDialog(isAppConfirm: false);
                         // 只有当前窗口仍有效时才设置 Owner（避免已关闭时崩溃）
                         if (IsLoaded && IsVisible) {
                             dlg.Owner = this;
@@ -170,6 +170,13 @@ namespace SWTools.WPF {
                         }
                     });
                     return code;
+                },
+                onAppConfirmPending: async () => {
+                    // Steam App 确认：仅更新状态文字，提示用户去手机操作
+                    // 不在此处弹窗，避免阻塞 stdout 读取导致 steamcmd 挂起
+                    await Dispatcher.InvokeAsync(() => {
+                        ViewModel.LoginStatusOverride = "等待 Steam App 确认...（请在手机 Steam App 中批准登录）";
+                    });
                 });
 
             // 同步最终状态
