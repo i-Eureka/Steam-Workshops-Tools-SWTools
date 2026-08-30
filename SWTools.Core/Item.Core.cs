@@ -100,7 +100,25 @@ namespace SWTools.Core {
             }
             var accounts = AccountManager.GetAccountFor(AppId);
             LogManager.Log.Debug("Found {Count} account(s) for {AppId}", accounts.Count, AppId);
-            // 使用已有账户下载
+
+            // 优先使用用户自定义账号（如已登录）
+            if (SteamLoginService.State == ELoginState.LoggedIn &&
+                !string.IsNullOrEmpty(SteamLoginService.LoggedInUsername)) {
+                // 复用 Steamcmd 缓存的会话：仅传用户名（无需密码）
+                var customAccount = new Account {
+                    Name = SteamLoginService.LoggedInUsername,
+                    Password = string.Empty
+                };
+                LogManager.Log.Information("Using custom logged-in account \"{Username}\" for download",
+                    customAccount.Name);
+                if (await DownloadWithSteamcmd(customAccount)) {
+                    return true;
+                }
+                LogManager.Log.Warning("Download with custom account failed (FailReason: {Reason}), " +
+                    "falling back to public accounts", FailReason);
+            }
+
+            // 使用已有（公有）账户下载
             foreach (var account in accounts) {
                 if (await DownloadWithSteamcmd(account)) {
                     return true;
