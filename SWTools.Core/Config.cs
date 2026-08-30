@@ -23,6 +23,8 @@ namespace SWTools.Core {
         public string CustomUsername { get; set; } = "";        // 自定义账号用户名
         public string CustomPassword { get; set; } = "";        // 自定义账号密码（明文存储，后续可接入 DPAPI 加密）
         public bool CustomRememberPassword { get; set; } = false; // 是否记住密码
+        public string CustomGuardCode { get; set; } = "";       // Steam Guard 验证码（可选，明文存储）
+        public bool CustomRememberGuardCode { get; set; } = false; // 是否记住验证码
 
         // [调试选项]
 #if DEBUG
