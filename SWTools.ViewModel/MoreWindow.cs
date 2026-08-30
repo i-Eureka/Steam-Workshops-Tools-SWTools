@@ -68,5 +68,35 @@ namespace SWTools.ViewModel {
             LoginStatusOverride = null;
             LoginState = Core.SteamLoginService.State;
         }
+
+        // 登录日志
+        private string _loginLog = string.Empty;
+        public string LoginLog {
+            get => _loginLog;
+            set {
+                _loginLog = value;
+                OnPropertyChanged(nameof(LoginLog));
+            }
+        }
+
+        public bool IsLoginLogExpanded {
+            get => _isLoginLogExpanded;
+            set {
+                if (_isLoginLogExpanded == value) return;
+                _isLoginLogExpanded = value;
+                OnPropertyChanged(nameof(IsLoginLogExpanded));
+            }
+        }
+        private bool _isLoginLogExpanded = false;
+
+        public void AppendLoginLog(string line) {
+            LoginLog = string.IsNullOrEmpty(LoginLog)
+                ? line
+                : LoginLog + Environment.NewLine + line;
+        }
+
+        public void ClearLoginLog() {
+            LoginLog = string.Empty;
+        }
     }
 }

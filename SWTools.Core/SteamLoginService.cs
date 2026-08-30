@@ -44,19 +44,22 @@ namespace SWTools.Core {
         /// 执行登录流程：用户名 + 密码，通过 stdin/stdout 与 steamcmd 交互。
         /// 若需要 TOTP，通过 getGuardCode 回调获取验证码后写入 stdin；
         /// 若需要 App 确认，通过 onAppConfirmPending 回调通知 UI，然后等待手机端完成确认。
+        /// onLogLine 回调用于实时输出 steamcmd 日志（可选）。
         /// </summary>
         public static async Task<ELoginResult> LoginAsync(
             string username,
             string password,
             Func<Task<string?>> getGuardCode,
-            Func<Task>? onAppConfirmPending = null) {
+            Func<Task>? onAppConfirmPending = null,
+            string? preSetGuardCode = null,
+            Action<string>? onLogLine = null) {
 
             State = ELoginState.LoggingIn;
             LoggedInUsername = string.Empty;
             LogManager.Log.Information("Steam login started for user \"{Username}\"", username);
 
             try {
-                var result = await RunLoginSessionAsync(username, password, getGuardCode, onAppConfirmPending);
+                var result = await RunLoginSessionAsync(username, password, getGuardCode, onAppConfirmPending, preSetGuardCode, onLogLine);
 
                 if (result == ELoginResult.Success) {
                     State = ELoginState.LoggedIn;
@@ -81,16 +84,20 @@ namespace SWTools.Core {
             string username,
             string password,
             Func<Task<string?>> getGuardCode,
-            Func<Task>? onAppConfirmPending) {
+            Func<Task>? onAppConfirmPending,
+            string? preSetGuardCode,
+            Action<string>? onLogLine) {
 
             if (!File.Exists(Constants.SteamcmdFile)) {
                 LogManager.Log.Error("Steamcmd not found at \"{Path}\"", Constants.SteamcmdFile);
                 return ELoginResult.Unknown;
             }
 
-            // 参数：+login username password +quit
-            // 不在命令行传入 guard code，改由 stdin 交互
-            string loginArgs = $"+login {username} {password} +quit";
+            // 参数：+login username password [set_steam_guard_code code] +quit
+            // 若预设了验证码，直接在命令行中传入
+            string loginArgs = string.IsNullOrWhiteSpace(preSetGuardCode)
+                ? $"+login {username} {password} +quit"
+                : $"+login {username} {password} +set_steam_guard_code {preSetGuardCode.Trim().Replace(" ", "").ToUpperInvariant()} +quit";
             ProcessStartInfo startInfo = Helper.Steamcmd.GetProcessStartInfo(loginArgs);
 
             using Process process = Process.Start(startInfo)
@@ -109,6 +116,7 @@ namespace SWTools.Core {
                 while ((line = await process.StandardOutput.ReadLineAsync()) != null) {
                     outputBuilder.AppendLine(line);
                     LogManager.Log.Debug("steamcmd: {Line}", line);
+                    onLogLine?.Invoke(line);
 
                     // --- App 确认（无需输入，手机操作）---
                     if (!appConfirmHandled &&
@@ -143,7 +151,8 @@ namespace SWTools.Core {
                         }
                     }
                     // --- 邮箱验证码提示 ---
-                    else if (!guardHandled && line.Contains("Steam Guard code")) {
+                    else if (!guardHandled &&
+                             line.Contains("Steam Guard") && line.Contains("code")) {
                         guardHandled = true;
                         LogManager.Log.Information("Steam Guard email code challenge received; requesting code from user");
 

@@ -124,10 +124,17 @@ namespace SWTools.WPF {
             Core.ConfigManager.Save("ClearPassword");
         }
 
+        // 取消"记住验证码"时，立即清除持久化的验证码
+        private void ChkRememberGuardCode_Unchecked(object sender, RoutedEventArgs e) {
+            Core.ConfigManager.Config.CustomGuardCode = string.Empty;
+            Core.ConfigManager.Save("ClearGuardCode");
+        }
+
         // 登录 / 重新登录
         private async void BtnLogin_Click(object sender, RoutedEventArgs e) {
             var username = TxtUsername.Text.Trim();
             var password = PbPassword.Password;
+            var guardCode = TxtGuardCode.Text.Trim();
 
             if (string.IsNullOrWhiteSpace(username)) {
                 MsgBox msg = new("输入错误", "请填写用户名。", false) { Owner = this };
@@ -140,14 +147,23 @@ namespace SWTools.WPF {
                 return;
             }
 
-            // 保存用户名；密码仅在"记住密码"开启时保存
+            // 保存用户名；密码仅在"记住密码"开启时保存；验证码仅在"记住验证码"开启时保存
             Core.ConfigManager.Config.CustomUsername = username;
             if (Core.ConfigManager.Config.CustomRememberPassword) {
                 Core.ConfigManager.Config.CustomPassword = password;
             } else {
                 Core.ConfigManager.Config.CustomPassword = string.Empty;
             }
+            if (Core.ConfigManager.Config.CustomRememberGuardCode) {
+                Core.ConfigManager.Config.CustomGuardCode = guardCode;
+            } else {
+                Core.ConfigManager.Config.CustomGuardCode = string.Empty;
+            }
             Core.ConfigManager.Save("Login");
+
+            // 清空并展开日志区
+            ViewModel.ClearLoginLog();
+            ViewModel.IsLoginLogExpanded = true;
 
             // 立即更新 UI 为"正在登录"状态，禁用登录按钮
             ViewModel.LoginState = Core.ELoginState.LoggingIn;
@@ -176,6 +192,12 @@ namespace SWTools.WPF {
                     // 不在此处弹窗，避免阻塞 stdout 读取导致 steamcmd 挂起
                     await Dispatcher.InvokeAsync(() => {
                         ViewModel.LoginStatusOverride = "等待 Steam App 确认...（请在手机 Steam App 中批准登录）";
+                    });
+                },
+                preSetGuardCode: string.IsNullOrWhiteSpace(guardCode) ? null : guardCode,
+                onLogLine: line => {
+                    Dispatcher.InvokeAsync(() => {
+                        ViewModel.AppendLoginLog(line);
                     });
                 });
 
