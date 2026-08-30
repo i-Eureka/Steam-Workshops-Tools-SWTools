@@ -57,12 +57,16 @@ namespace SWTools.Core.Helper {
 
         // 读取本地 “最新信息” 文件
         public static API.LatestInfo.Response? ReadLatestInfo() {
+            if (!File.Exists(Constants.LatestInfoFile)) {
+                LogManager.Log.Debug("{FileName} not found, skipping", Constants.LatestInfoFile);
+                return null;
+            }
             try {
                 var jsonString = File.ReadAllText(Constants.LatestInfoFile);
                 return JsonSerializer.Deserialize<API.LatestInfo.Response>(jsonString, Constants.JsonOptions);
             }
             catch (Exception ex) {
-                LogManager.Log.Error("Exception occurred when loading from {FileName}:\n{Exception}", Constants.LatestInfoFile, ex);
+                LogManager.Log.Warning("Exception occurred when loading from {FileName}:\n{Exception}", Constants.LatestInfoFile, ex);
                 return null;
             }
         }
