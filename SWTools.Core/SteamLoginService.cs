@@ -53,27 +53,42 @@ namespace SWTools.Core {
 
             State = ELoginState.LoggingIn;
             LoggedInUsername = string.Empty;
+            LogManager.Log.Information("Steam login started for user \"{Username}\"", username);
 
             try {
                 // 第一次尝试：仅用户名 + 密码
                 var result = await TryLoginAsync(username, password, null);
 
                 if (result == ELoginResult.NeedGuardCode) {
-                    // 需要令牌：通过回调向用户请求
-                    var code = await getGuardCode();
-                    if (string.IsNullOrWhiteSpace(code)) {
-                        State = ELoginState.NotLoggedIn;
-                        return ELoginResult.Cancelled;
+                    // 需要令牌：通过回调向用户请求（最多重试一次）
+                    LogManager.Log.Information("Steam Guard challenge received; requesting code from user");
+                    for (int attempt = 0; attempt < 2; attempt++) {
+                        var code = await getGuardCode();
+                        if (string.IsNullOrWhiteSpace(code)) {
+                            State = ELoginState.NotLoggedIn;
+                            LogManager.Log.Information("Steam login cancelled by user (no guard code entered)");
+                            return ELoginResult.Cancelled;
+                        }
+                        // 规范化：去空格、大写
+                        var normalizedCode = code.Trim().Replace(" ", "").ToUpperInvariant();
+                        LogManager.Log.Information("Submitting Steam Guard code (attempt {Attempt})", attempt + 1);
+                        result = await TryLoginAsync(username, password, normalizedCode);
+                        if (result != ELoginResult.GuardCodeFailed)
+                            break;
+                        if (attempt == 0)
+                            LogManager.Log.Warning("Steam Guard code invalid or expired; prompting user for retry");
+                        else
+                            LogManager.Log.Warning("Steam Guard code failed after retry; giving up");
                     }
-                    // 第二次尝试：附带令牌
-                    result = await TryLoginAsync(username, password, code.Trim());
                 }
 
                 if (result == ELoginResult.Success) {
                     State = ELoginState.LoggedIn;
                     LoggedInUsername = username;
+                    LogManager.Log.Information("Steam login succeeded for user \"{Username}\"", username);
                 } else {
                     State = ELoginState.Failed;
+                    LogManager.Log.Warning("Steam login failed: {Result}", result);
                 }
                 return result;
             } catch (Exception ex) {

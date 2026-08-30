@@ -149,8 +149,8 @@ namespace SWTools.WPF {
             }
             Core.ConfigManager.Save("Login");
 
-            // 更新 UI 状态
-            ViewModel.SyncLoginState();  // 先同步为 LoggingIn
+            // 立即更新 UI 为"正在登录"状态，禁用登录按钮
+            ViewModel.LoginState = Core.ELoginState.LoggingIn;
 
             // 启动登录（异步）
             var result = await Core.SteamLoginService.LoginAsync(
@@ -160,7 +160,11 @@ namespace SWTools.WPF {
                     // 需要在 UI 线程弹出对话框
                     string? code = null;
                     await Dispatcher.InvokeAsync(() => {
-                        var dlg = new SteamGuardDialog { Owner = this };
+                        var dlg = new SteamGuardDialog();
+                        // 只有当前窗口仍有效时才设置 Owner（避免已关闭时崩溃）
+                        if (IsLoaded && IsVisible) {
+                            dlg.Owner = this;
+                        }
                         if (dlg.ShowDialog() == true) {
                             code = dlg.GuardCode;
                         }
@@ -170,6 +174,9 @@ namespace SWTools.WPF {
 
             // 同步最终状态
             ViewModel.SyncLoginState();
+
+            // 若窗口已关闭则不弹结果对话框
+            if (!IsLoaded || !IsVisible) return;
 
             // 提示结果
             string resultMsg = result switch {
@@ -183,7 +190,8 @@ namespace SWTools.WPF {
             MsgBox resultBox = new(
                 result == Core.ELoginResult.Success ? "登录成功" : "登录失败",
                 resultMsg,
-                false) { Owner = this };
+                false);
+            if (IsLoaded && IsVisible) resultBox.Owner = this;
             resultBox.ShowDialog();
         }
 
